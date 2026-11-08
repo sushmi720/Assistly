@@ -1,0 +1,864 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ASSISTLY — AI-Powered Productivity</title>
+  <style>
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{background:#09090b;color:#fafafa;font-family:Inter,Arial,sans-serif;overflow-x:hidden}
+    a{text-decoration:none;color:inherit}
+    /* Layout */
+    #sidebar{position:fixed;left:0;top:0;bottom:0;width:240px;background:rgba(9,9,11,0.95);border-right:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;z-index:50;transition:width 0.25s ease}
+    #sidebar.collapsed{width:64px}
+    #main{margin-left:240px;min-height:100vh;display:flex;flex-direction:column;transition:margin-left 0.25s ease}
+    #sidebar.collapsed~#main{margin-left:64px}
+    /* Sidebar toggle */
+    .sb-toggle{position:absolute;right:-12px;top:80px;width:24px;height:24px;border-radius:50%;background:#27272a;border:1px solid rgba(255,255,255,0.1);display:flex;align-items:center;justify-content:center;cursor:pointer;color:#a1a1aa;font-size:14px;z-index:60;user-select:none}
+    /* Logo */
+    .sb-logo{display:flex;align-items:center;gap:10px;padding:20px 16px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0}
+    .sb-logo-icon{width:32px;height:32px;background:#7c3aed;border-radius:8px;display:flex;align-items:center;justify-content:center;flex-shrink:0;box-shadow:0 0 20px rgba(139,92,246,0.3)}
+    .sb-logo-text{overflow:hidden}
+    .sb-logo-text .name{font-size:13px;font-weight:700;color:white;letter-spacing:2px;white-space:nowrap}
+    .sb-logo-text .sub{font-size:10px;color:#52525b;letter-spacing:3px;text-transform:uppercase;white-space:nowrap}
+    #sidebar.collapsed .sb-logo-text{display:none}
+    /* AI pill */
+    .ai-pill{padding:12px 16px;flex-shrink:0}
+    .ai-pill-inner{display:flex;align-items:center;gap:8px;background:rgba(34,197,94,0.1);border:1px solid rgba(34,197,94,0.2);border-radius:8px;padding:8px 12px}
+    .ai-pill-inner span{font-size:12px;color:#86efac;font-weight:500;white-space:nowrap}
+    #sidebar.collapsed .ai-pill{display:none}
+    /* Nav */
+    .sb-nav{flex:1;padding:8px 12px;overflow-y:auto}
+    .nav-item{display:flex;align-items:center;gap:12px;padding:10px 12px;border-radius:8px;cursor:pointer;color:#a1a1aa;font-size:14px;font-weight:500;border:1px solid transparent;transition:all 0.2s;margin:2px 0;white-space:nowrap}
+    .nav-item:hover{background:rgba(255,255,255,0.05);color:#e4e4e7}
+    .nav-item.active{background:rgba(139,92,246,0.2);color:#c4b5fd;border-color:rgba(139,92,246,0.3)}
+    .nav-item svg{width:16px;height:16px;flex-shrink:0}
+    .nav-label{flex:1;overflow:hidden}
+    #sidebar.collapsed .nav-label{display:none}
+    #sidebar.collapsed .nav-badge{display:none}
+    .nav-badge{background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.3);padding:1px 6px;border-radius:9999px;font-size:10px;font-weight:600}
+    .nav-badge-amber{background:rgba(245,158,11,0.2);color:#fcd34d;border:1px solid rgba(245,158,11,0.3)}
+    .sb-bottom{border-top:1px solid rgba(255,255,255,0.08);padding:12px;flex-shrink:0}
+    /* Header */
+    #header{height:56px;border-bottom:1px solid rgba(255,255,255,0.08);background:rgba(9,9,11,0.9);display:flex;align-items:center;padding:0 16px;gap:16px;position:sticky;top:0;z-index:40;backdrop-filter:blur(12px);flex-shrink:0}
+    .search-bar{flex:1;max-width:400px;display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:6px 12px;cursor:pointer}
+    .search-bar span{font-size:12px;color:#52525b}
+    .header-right{display:flex;align-items:center;gap:10px;margin-left:auto}
+    .avatar{width:28px;height:28px;border-radius:50%;background:rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:600;color:#c4b5fd}
+    /* Pages */
+    .page{display:none;padding:24px;max-width:1280px;width:100%}
+    .page.active{display:block}
+    #page-notes{display:none;flex:1;overflow:hidden}
+    #page-notes.active{display:flex}
+    /* Cards */
+    .card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px}
+    /* Badges */
+    .badge{display:inline-flex;align-items:center;padding:2px 8px;border-radius:9999px;font-size:11px;font-weight:600}
+    .bv{background:rgba(139,92,246,0.2);color:#c4b5fd;border:1px solid rgba(139,92,246,0.3)}
+    .br{background:rgba(239,68,68,0.2);color:#fca5a5;border:1px solid rgba(239,68,68,0.3)}
+    .bg{background:rgba(34,197,94,0.2);color:#86efac;border:1px solid rgba(34,197,94,0.3)}
+    .ba{background:rgba(245,158,11,0.2);color:#fcd34d;border:1px solid rgba(245,158,11,0.3)}
+    .bb{background:rgba(59,130,246,0.2);color:#93c5fd;border:1px solid rgba(59,130,246,0.3)}
+    /* Buttons */
+    .btn{display:inline-flex;align-items:center;gap:6px;padding:7px 16px;border-radius:8px;font-size:13px;font-weight:500;cursor:pointer;border:none;transition:all 0.2s}
+    .btn-p{background:#7c3aed;color:white}
+    .btn-p:hover{background:#6d28d9}
+    .btn-o{background:rgba(255,255,255,0.05);color:#a1a1aa;border:1px solid rgba(255,255,255,0.1)}
+    .btn-o:hover{background:rgba(255,255,255,0.1);color:white}
+    /* Stats */
+    .stats-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:16px;margin-bottom:24px}
+    .stat-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:20px}
+    /* Ticker */
+    .ticker{background:rgba(139,92,246,0.08);border:1px solid rgba(139,92,246,0.2);border-radius:12px;padding:12px 16px;display:flex;align-items:center;gap:12px;margin-bottom:24px;overflow:hidden}
+    .ping-dot{width:8px;height:8px;border-radius:50%;background:#8b5cf6;flex-shrink:0;animation:pingAnim 1.5s infinite}
+    @keyframes pingAnim{0%,100%{opacity:1;transform:scale(1)}50%{opacity:0.5;transform:scale(1.4)}}
+    /* 3-col grid */
+    .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px}
+    /* Timeline */
+    .timeline-wrap{position:relative;padding-left:28px}
+    .timeline-line{position:absolute;left:7px;top:8px;bottom:8px;width:1px;background:linear-gradient(to bottom,rgba(139,92,246,0.5),rgba(255,255,255,0.05))}
+    .tl-dot{position:absolute;left:-21px;top:4px;width:14px;height:14px;border-radius:50%;border:2px solid #3f3f46;background:#18181b}
+    .tl-dot.active{border-color:#8b5cf6;background:#7c3aed}
+    .tl-item{margin-bottom:12px;position:relative}
+    .tl-box{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:8px;padding:10px}
+    .tl-box.active{border-color:rgba(139,92,246,0.3);background:rgba(139,92,246,0.08)}
+    /* Task cards */
+    .task-card{background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;margin-bottom:8px;cursor:pointer;transition:all 0.2s}
+    .task-card:hover{border-color:rgba(255,255,255,0.15);background:rgba(255,255,255,0.07)}
+    /* Kanban */
+    .kanban-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+    .kanban-col{border-radius:12px;padding:16px;min-height:300px}
+    /* Calendar */
+    .cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+    .cal-cell{min-height:96px;border-bottom:1px solid rgba(255,255,255,0.04);border-right:1px solid rgba(255,255,255,0.04);padding:6px;cursor:pointer;transition:background 0.15s}
+    .cal-cell:hover{background:rgba(255,255,255,0.02)}
+    .cal-cell.today{background:rgba(139,92,246,0.08)}
+    .cal-day-num{display:inline-flex;width:24px;height:24px;align-items:center;justify-content:center;border-radius:50%;font-size:12px;font-weight:500;color:#a1a1aa}
+    .cal-day-num.today{background:#7c3aed;color:white}
+    .cal-event{background:rgba(139,92,246,0.2);color:#c4b5fd;font-size:9px;padding:2px 4px;border-radius:3px;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    /* Glow */
+    .glow{position:fixed;pointer-events:none;z-index:0;border-radius:50%;filter:blur(100px)}
+    /* Row item */
+    .row-item{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.02);border:1px solid rgba(255,255,255,0.05);border-radius:8px;padding:10px 12px;margin-bottom:6px;cursor:pointer;transition:all 0.15s}
+    .row-item:hover{border-color:rgba(255,255,255,0.1);background:rgba(255,255,255,0.04)}
+    /* Integration card */
+    .int-card{border-radius:12px;padding:20px;margin-bottom:0}
+    /* Search */
+    .search-result{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:12px;padding:16px;margin-bottom:12px;cursor:pointer;transition:border-color 0.2s}
+    .search-result:hover{border-color:rgba(139,92,246,0.3)}
+    /* Page headers */
+    .page-header{margin-bottom:24px}
+    .page-header h1{font-size:24px;font-weight:700;color:white;margin-bottom:4px}
+    .page-header p{color:#71717a;font-size:14px}
+    /* Scrollbar */
+    ::-webkit-scrollbar{width:4px}
+    ::-webkit-scrollbar-track{background:transparent}
+    ::-webkit-scrollbar-thumb{background:rgba(255,255,255,0.1);border-radius:2px}
+    ::selection{background:rgba(139,92,246,0.3);color:white}
+    /* Responsive */
+    @media(max-width:768px){
+      #sidebar{width:64px}
+      #sidebar .nav-label,.sb-logo-text,.ai-pill{display:none}
+      #main{margin-left:64px}
+      .stats-grid{grid-template-columns:repeat(2,1fr)}
+      .grid3{grid-template-columns:1fr}
+      .kanban-grid{grid-template-columns:1fr}
+    }
+  </style>
+</head>
+<body>
+
+<!-- Ambient glows -->
+<div class="glow" style="width:400px;height:400px;background:rgba(139,92,246,0.07);top:-150px;left:-150px;"></div>
+<div class="glow" style="width:300px;height:300px;background:rgba(99,102,241,0.05);top:50%;right:-100px;"></div>
+
+<!-- ═══════ SIDEBAR ═══════ -->
+<div id="sidebar">
+  <div class="sb-toggle" id="sb-toggle" onclick="toggleSidebar()">&#8249;</div>
+
+  <div class="sb-logo">
+    <div class="sb-logo-icon">
+      <svg width="16" height="16" fill="white" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5" stroke="white" stroke-width="1.5" fill="none"/></svg>
+    </div>
+    <div class="sb-logo-text">
+      <div class="name">ASSISTLY</div>
+      <div class="sub">AI Productivity</div>
+    </div>
+  </div>
+
+  <div class="ai-pill">
+    <div class="ai-pill-inner">
+      <div class="ping-dot" style="background:#22c55e;"></div>
+      <span>AI Pipeline Active</span>
+      <svg style="margin-left:auto" width="12" height="12" fill="none" stroke="#22c55e" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+    </div>
+  </div>
+
+  <nav class="sb-nav" id="sb-nav">
+    <a class="nav-item active" onclick="showPage('dashboard',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>
+      <span class="nav-label">Overview</span>
+    </a>
+    <a class="nav-item" onclick="showPage('tasks',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+      <span class="nav-label">Tasks</span>
+      <span class="nav-badge">4</span>
+    </a>
+    <a class="nav-item" onclick="showPage('search',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span class="nav-label">Smart Search</span>
+    </a>
+    <a class="nav-item" onclick="showPage('calendar',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+      <span class="nav-label">Calendar</span>
+    </a>
+    <a class="nav-item" onclick="showPage('notes',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+      <span class="nav-label">Notes</span>
+    </a>
+    <a class="nav-item" onclick="showPage('availability',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+      <span class="nav-label">Availability</span>
+    </a>
+    <a class="nav-item" onclick="showPage('integrations',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
+      <span class="nav-label">Integrations</span>
+      <span class="nav-badge nav-badge-amber">2</span>
+    </a>
+  </nav>
+
+  <div class="sb-bottom">
+    <a class="nav-item" onclick="showPage('settings',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"/></svg>
+      <span class="nav-label">Settings</span>
+    </a>
+    <a class="nav-item" onclick="showPage('profile',this)" href="#">
+      <svg fill="none" stroke="currentColor" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      <span class="nav-label">Profile</span>
+    </a>
+  </div>
+</div>
+
+<!-- ═══════ MAIN ═══════ -->
+<div id="main">
+
+  <!-- HEADER -->
+  <div id="header">
+    <div class="search-bar">
+      <svg width="14" height="14" fill="none" stroke="#71717a" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span>Search or run command... (Ctrl+K)</span>
+    </div>
+    <div class="header-right">
+      <button class="btn btn-p" style="height:32px;font-size:12px;">+ Quick Add</button>
+      <div style="position:relative;cursor:pointer;">
+        <svg width="16" height="16" fill="none" stroke="#71717a" viewBox="0 0 24 24"><path d="M18 8A6 6 0 006 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 01-3.46 0"/></svg>
+        <div style="position:absolute;top:-2px;right:-2px;width:7px;height:7px;background:#ef4444;border-radius:50%;"></div>
+      </div>
+      <div style="width:1px;height:20px;background:rgba(255,255,255,0.08);"></div>
+      <div style="display:flex;align-items:center;gap:8px;cursor:pointer;">
+        <div class="avatar">AJ</div>
+        <span style="font-size:12px;color:#d4d4d8;">Alex Johnson</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ DASHBOARD ═══ -->
+  <div class="page active" id="page-dashboard">
+    <div class="page-header">
+      <h1>Good morning, Alex 👋</h1>
+      <p>Sunday, November 8, 2026 &nbsp;·&nbsp; 2 integrations active</p>
+    </div>
+
+    <!-- AI Ticker -->
+    <div class="ticker">
+      <div class="ping-dot"></div>
+      <svg width="14" height="14" fill="none" stroke="#8b5cf6" viewBox="0 0 24 24"><path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/></svg>
+      <span style="font-size:12px;color:#8b5cf6;font-weight:600;white-space:nowrap;">AI Live Feed</span>
+      <span style="font-size:12px;color:#a1a1aa;transition:opacity 0.3s" id="ticker-text">📩 Extracted task from Gmail: 'Submit Q4 report' — due today</span>
+    </div>
+
+    <!-- Stats -->
+    <div class="stats-grid">
+      <div class="stat-card" style="border-color:rgba(139,92,246,0.2);">
+        <p style="font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Due Today</p>
+        <p style="font-size:32px;font-weight:700;color:white;margin-bottom:4px;">2</p>
+        <p style="font-size:12px;color:#71717a;">4 total pending</p>
+        <p style="font-size:12px;color:#8b5cf6;margin-top:8px;">↑ 12% from yesterday</p>
+      </div>
+      <div class="stat-card" style="border-color:rgba(59,130,246,0.2);">
+        <p style="font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Today's Events</p>
+        <p style="font-size:32px;font-weight:700;color:white;margin-bottom:4px;">3</p>
+        <p style="font-size:12px;color:#71717a;">Calendar meetings</p>
+      </div>
+      <div class="stat-card" style="border-color:rgba(239,68,68,0.2);">
+        <p style="font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">Urgent Items</p>
+        <p style="font-size:32px;font-weight:700;color:white;margin-bottom:4px;">1</p>
+        <p style="font-size:12px;color:#71717a;">Needs attention</p>
+        <p style="font-size:12px;color:#ef4444;margin-top:8px;">↓ 8% from last week</p>
+      </div>
+      <div class="stat-card" style="border-color:rgba(34,197,94,0.2);">
+        <p style="font-size:11px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:8px;">AI Processed</p>
+        <p style="font-size:32px;font-weight:700;color:white;margin-bottom:4px;">47</p>
+        <p style="font-size:12px;color:#71717a;">Messages this week</p>
+        <p style="font-size:12px;color:#22c55e;margin-top:8px;">↑ 23% vs last week</p>
+      </div>
+    </div>
+
+    <!-- 3 cols -->
+    <div class="grid3">
+      <!-- Today's Schedule -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" fill="none" stroke="#8b5cf6" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+            <span style="font-size:14px;font-weight:600;color:white;">Today's Schedule</span>
+          </div>
+          <span class="badge bv">3 events</span>
+        </div>
+        <div class="timeline-wrap">
+          <div class="timeline-line"></div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-box">
+              <p style="font-size:13px;color:white;font-weight:500;margin-bottom:4px;">Engineering Standup</p>
+              <p style="font-size:11px;color:#71717a;">9:00 AM – 9:15 AM</p>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot active"></div>
+            <div class="tl-box active">
+              <p style="font-size:13px;color:#c4b5fd;font-weight:500;margin-bottom:4px;">Product Review Meeting</p>
+              <p style="font-size:11px;color:#71717a;margin-bottom:4px;">11:00 AM – 12:00 PM</p>
+              <span class="badge bv" style="font-size:10px;padding:1px 6px;">Now</span>
+            </div>
+          </div>
+          <div class="tl-item">
+            <div class="tl-dot"></div>
+            <div class="tl-box">
+              <p style="font-size:13px;color:white;font-weight:500;margin-bottom:4px;">Investor Call</p>
+              <p style="font-size:11px;color:#71717a;">2:30 PM – 3:30 PM</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Urgent Items -->
+      <div class="card" style="border-color:rgba(239,68,68,0.15);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" fill="none" stroke="#ef4444" viewBox="0 0 24 24"><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+            <span style="font-size:14px;font-weight:600;color:white;">Urgent Items</span>
+          </div>
+          <span class="badge br">2 items</span>
+        </div>
+        <div class="row-item">
+          <div style="width:8px;height:8px;border-radius:50%;background:#ef4444;flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:13px;color:white;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Submit Q4 financial report</p>
+            <p style="font-size:11px;color:#71717a;margin-top:2px;">📧 gmail · Work</p>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <span class="badge br" style="font-size:10px;padding:1px 6px;">Urgent</span>
+            <span style="font-size:10px;color:#ef4444;">Due today</span>
+          </div>
+        </div>
+        <div class="row-item">
+          <div style="width:8px;height:8px;border-radius:50%;background:#f97316;flex-shrink:0;"></div>
+          <div style="flex:1;min-width:0;">
+            <p style="font-size:13px;color:white;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Pay AWS invoice</p>
+            <p style="font-size:11px;color:#71717a;margin-top:2px;">📧 gmail · Payment</p>
+          </div>
+          <div style="display:flex;flex-direction:column;align-items:flex-end;gap:3px;">
+            <span class="badge ba" style="font-size:10px;padding:1px 6px;">High</span>
+            <span style="font-size:10px;color:#f59e0b;">Due in 2d</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Recent Tasks -->
+      <div class="card">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+          <div style="display:flex;align-items:center;gap:8px;">
+            <svg width="16" height="16" fill="none" stroke="#8b5cf6" viewBox="0 0 24 24"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>
+            <span style="font-size:14px;font-weight:600;color:white;">Recent Tasks</span>
+          </div>
+        </div>
+        <div class="row-item">
+          <div style="flex:1;min-width:0;"><p style="font-size:12px;color:white;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Submit Q4 financial report</p></div>
+          <span class="badge br" style="font-size:10px;padding:1px 6px;">Urgent</span>
+          <span class="badge ba" style="font-size:10px;padding:1px 6px;">Pending</span>
+        </div>
+        <div class="row-item">
+          <div style="flex:1;min-width:0;"><p style="font-size:12px;color:white;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Team standup — Engineering</p></div>
+          <span class="badge ba" style="font-size:10px;padding:1px 6px;">High</span>
+          <span class="badge bb" style="font-size:10px;padding:1px 6px;">In Progress</span>
+        </div>
+        <div class="row-item">
+          <div style="flex:1;min-width:0;"><p style="font-size:12px;color:white;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Pay AWS invoice</p></div>
+          <span class="badge ba" style="font-size:10px;padding:1px 6px;">High</span>
+          <span class="badge ba" style="font-size:10px;padding:1px 6px;">Pending</span>
+        </div>
+        <div class="row-item">
+          <div style="flex:1;min-width:0;"><p style="font-size:12px;color:white;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Review design mockups</p></div>
+          <span class="badge bb" style="font-size:10px;padding:1px 6px;">Medium</span>
+          <span class="badge bb" style="font-size:10px;padding:1px 6px;">In Progress</span>
+        </div>
+        <div class="row-item">
+          <div style="flex:1;min-width:0;"><p style="font-size:12px;color:white;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Doctor appointment confirmation</p></div>
+          <span class="badge bv" style="font-size:10px;padding:1px 6px;">Low</span>
+          <span class="badge bg" style="font-size:10px;padding:1px 6px;">Completed</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Integration status -->
+    <div class="card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;">
+        <span style="font-size:14px;font-weight:600;color:white;">Integration Status</span>
+        <span style="font-size:12px;color:#71717a;">2/4 connected</span>
+      </div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(34,197,94,0.2);background:rgba(34,197,94,0.06);border-radius:8px;padding:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;"></div>
+          <div><p style="font-size:12px;color:white;font-weight:500;margin-bottom:2px;">Gmail</p><p style="font-size:10px;color:#22c55e;">Active</p></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(34,197,94,0.2);background:rgba(34,197,94,0.06);border-radius:8px;padding:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#22c55e;flex-shrink:0;"></div>
+          <div><p style="font-size:12px;color:white;font-weight:500;margin-bottom:2px;">Outlook</p><p style="font-size:10px;color:#22c55e;">Active</p></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);border-radius:8px;padding:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#3f3f46;flex-shrink:0;"></div>
+          <div><p style="font-size:12px;color:white;font-weight:500;margin-bottom:2px;">WhatsApp</p><p style="font-size:10px;color:#52525b;">Not connected</p></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:10px;border:1px solid rgba(255,255,255,0.06);background:rgba(255,255,255,0.02);border-radius:8px;padding:12px;">
+          <div style="width:8px;height:8px;border-radius:50%;background:#3f3f46;flex-shrink:0;"></div>
+          <div><p style="font-size:12px;color:white;font-weight:500;margin-bottom:2px;">Telegram</p><p style="font-size:10px;color:#52525b;">Not connected</p></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ TASKS ═══ -->
+  <div class="page" id="page-tasks">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div class="page-header" style="margin-bottom:0;"><h1>Tasks</h1><p>5 active · 1 completed</p></div>
+      <div style="display:flex;gap:8px;">
+        <button class="btn btn-o">🔽 Filter</button>
+        <button class="btn btn-p">+ New Task</button>
+      </div>
+    </div>
+    <div class="kanban-grid">
+      <div class="kanban-col" style="background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:13px;font-weight:600;color:#fcd34d;">Pending</span>
+          <span class="badge ba">3</span>
+        </div>
+        <div class="task-card"><p style="font-size:13px;color:white;font-weight:500;margin-bottom:8px;">Submit Q4 financial report</p><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#71717a;">📧 gmail</span><span class="badge br" style="font-size:10px;">Urgent</span></div></div>
+        <div class="task-card"><p style="font-size:13px;color:white;font-weight:500;margin-bottom:8px;">Pay AWS invoice</p><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#71717a;">📧 gmail</span><span class="badge ba" style="font-size:10px;">High</span></div></div>
+        <div class="task-card"><p style="font-size:13px;color:white;font-weight:500;margin-bottom:8px;">Product launch announcement</p><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#71717a;">📧 outlook</span><span class="badge bb" style="font-size:10px;">Medium</span></div></div>
+        <div style="border:1px dashed rgba(255,255,255,0.1);border-radius:8px;padding:12px;text-align:center;color:#52525b;font-size:12px;cursor:pointer;margin-top:4px;">+ Add task</div>
+      </div>
+      <div class="kanban-col" style="background:rgba(59,130,246,0.06);border:1px solid rgba(59,130,246,0.25);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:13px;font-weight:600;color:#93c5fd;">In Progress</span>
+          <span class="badge bb">2</span>
+        </div>
+        <div class="task-card"><p style="font-size:13px;color:white;font-weight:500;margin-bottom:8px;">Team standup — Engineering</p><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#71717a;">📧 outlook</span><span class="badge ba" style="font-size:10px;">High</span></div></div>
+        <div class="task-card"><p style="font-size:13px;color:white;font-weight:500;margin-bottom:8px;">Review design mockups</p><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#71717a;">✈️ telegram</span><span class="badge bb" style="font-size:10px;">Medium</span></div></div>
+        <div style="border:1px dashed rgba(255,255,255,0.1);border-radius:8px;padding:12px;text-align:center;color:#52525b;font-size:12px;cursor:pointer;margin-top:4px;">+ Add task</div>
+      </div>
+      <div class="kanban-col" style="background:rgba(34,197,94,0.06);border:1px solid rgba(34,197,94,0.25);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:13px;font-weight:600;color:#86efac;">Completed</span>
+          <span class="badge bg">1</span>
+        </div>
+        <div class="task-card"><p style="font-size:13px;color:white;font-weight:500;margin-bottom:8px;">Doctor appointment confirmation</p><div style="display:flex;align-items:center;justify-content:space-between;"><span style="font-size:11px;color:#71717a;">💬 whatsapp</span><span class="badge bv" style="font-size:10px;">Low</span></div></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ SEARCH ═══ -->
+  <div class="page" id="page-search">
+    <div class="page-header"><h1>✨ Smart Search</h1><p>Semantic vector search using Bedrock Titan Embeddings · 1536-dim · Cosine similarity</p></div>
+    <div style="display:flex;gap:8px;margin-bottom:16px;">
+      <div style="flex:1;display:flex;align-items:center;gap:10px;background:#18181b;border:1px solid rgba(255,255,255,0.1);border-radius:10px;padding:12px 16px;">
+        <svg width="16" height="16" fill="none" stroke="#71717a" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+        <input id="search-input" placeholder="Search notes semantically... e.g. 'cloud database architecture'" style="flex:1;background:transparent;border:none;outline:none;font-size:14px;color:white;" />
+      </div>
+      <button class="btn btn-p" onclick="doSearch()">Search</button>
+    </div>
+    <div style="background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.15);border-radius:10px;padding:12px 16px;margin-bottom:24px;">
+      <p style="font-size:12px;color:#a1a1aa;">✨ Powered by <span style="color:#8b5cf6;font-weight:500;">Amazon Bedrock Titan Text Embeddings</span> · ORDER BY embedding &lt;=&gt; query_vector</p>
+    </div>
+    <div id="search-results"></div>
+  </div>
+
+  <!-- ═══ CALENDAR ═══ -->
+  <div class="page" id="page-calendar">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:24px;">
+      <div class="page-header" style="margin:0;"><h1>Calendar</h1></div>
+      <div style="display:flex;align-items:center;gap:8px;">
+        <button class="btn btn-o" onclick="changeMonth(-1)">&#8249;</button>
+        <span id="cal-month-label" style="font-size:14px;color:white;font-weight:500;min-width:140px;text-align:center;">November 2026</span>
+        <button class="btn btn-o" onclick="changeMonth(1)">&#8250;</button>
+        <button class="btn btn-p" onclick="goToday()">Today</button>
+      </div>
+    </div>
+    <div class="card" style="padding:0;overflow:hidden;">
+      <div class="cal-grid" style="border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div style="padding:12px;text-align:center;font-size:11px;font-weight:500;color:#71717a;text-transform:uppercase;letter-spacing:1px;">Sun</div>
+        <div style="padding:12px;text-align:center;font-size:11px;font-weight:500;color:#71717a;text-transform:uppercase;letter-spacing:1px;">Mon</div>
+        <div style="padding:12px;text-align:center;font-size:11px;font-weight:500;color:#71717a;text-transform:uppercase;letter-spacing:1px;">Tue</div>
+        <div style="padding:12px;text-align:center;font-size:11px;font-weight:500;color:#71717a;text-transform:uppercase;letter-spacing:1px;">Wed</div>
+        <div style="padding:12px;text-align:center;font-size:11px;font-weight:500;color:#71717a;text-transform:uppercase;letter-spacing:1px;">Thu</div>
+        <div style="padding:12px;text-align:center;font-size:11px;font-weight:500;color:#71717a;text-transform:uppercase;letter-spacing:1px;">Fri</div>
+        <div style="padding:12px;text-align:center;font-size:11px;font-weight:500;color:#71717a;text-transform:uppercase;letter-spacing:1px;">Sat</div>
+      </div>
+      <div class="cal-grid" id="cal-grid"></div>
+    </div>
+  </div>
+
+  <!-- ═══ NOTES ═══ -->
+  <div id="page-notes">
+    <div style="width:280px;border-right:1px solid rgba(255,255,255,0.08);display:flex;flex-direction:column;flex-shrink:0;">
+      <div style="padding:16px;border-bottom:1px solid rgba(255,255,255,0.08);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:14px;font-weight:600;color:white;">Notes</span>
+          <button class="btn btn-p" style="height:28px;font-size:11px;padding:4px 10px;">+ New</button>
+        </div>
+        <div style="display:flex;align-items:center;gap:8px;background:rgba(255,255,255,0.04);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:8px 12px;">
+          <svg width="14" height="14" fill="none" stroke="#71717a" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input placeholder="Search notes..." style="background:transparent;border:none;outline:none;font-size:12px;color:white;width:100%;" />
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:8px;">
+        <div onclick="selectNote(0)" id="note-0" style="padding:12px;border-radius:8px;cursor:pointer;border:1px solid rgba(139,92,246,0.3);background:rgba(139,92,246,0.1);margin-bottom:4px;">
+          <p style="font-size:13px;font-weight:500;color:white;margin-bottom:4px;">AWS Architecture Notes</p>
+          <p style="font-size:11px;color:#71717a;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">Aurora Serverless v2, pgvector extension...</p>
+          <span class="badge bv" style="font-size:10px;">Technical</span>
+        </div>
+        <div onclick="selectNote(1)" id="note-1" style="padding:12px;border-radius:8px;cursor:pointer;border:1px solid transparent;background:transparent;margin-bottom:4px;">
+          <p style="font-size:13px;font-weight:500;color:white;margin-bottom:4px;">Q4 Planning Ideas</p>
+          <p style="font-size:11px;color:#71717a;margin-bottom:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">ARR goal: $2.4M, enterprise tier focus...</p>
+          <span class="badge bv" style="font-size:10px;">Planning</span>
+        </div>
+      </div>
+    </div>
+    <div style="flex:1;display:flex;flex-direction:column;overflow:hidden;">
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 24px;border-bottom:1px solid rgba(255,255,255,0.08);flex-shrink:0;">
+        <div>
+          <h2 id="note-title" style="font-size:18px;font-weight:600;color:white;margin-bottom:4px;">AWS Architecture Notes</h2>
+          <p style="font-size:12px;color:#71717a;">Last edited November 1, 2026</p>
+        </div>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-o" style="font-size:12px;">✨ Semantic Search</button>
+          <button class="btn btn-p" style="font-size:12px;">Save</button>
+        </div>
+      </div>
+      <div style="flex:1;overflow-y:auto;padding:24px;">
+        <pre id="note-content" style="color:#d4d4d8;font-family:inherit;font-size:14px;line-height:1.8;white-space:pre-wrap;">## Aurora Serverless v2
+
+Key points:
+- Auto-scaling ACUs between 0.5 and 128
+- pgvector extension for semantic search
+- Row-level security per tenant
+
+## Bedrock Integration
+
+- Claude 3.5 Sonnet for task extraction
+- Titan Text Embeddings v2 for notes (1536-dim)
+- Confidence threshold: 0.70 for auto-insert</pre>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ AVAILABILITY ═══ -->
+  <div class="page" id="page-availability">
+    <div class="page-header"><h1>Smart Availability</h1><p>Free and busy windows from calendar and tasks · Working hours: 08:00 – 18:00</p></div>
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:24px;">
+      <span style="font-size:14px;color:#a1a1aa;">Target Date:</span>
+      <input type="date" value="2026-11-01" style="background:#18181b;border:1px solid rgba(255,255,255,0.1);border-radius:8px;padding:8px 12px;color:white;font-size:14px;outline:none;" />
+      <button class="btn btn-p">Check Availability</button>
+    </div>
+    <div class="card" style="border-color:rgba(245,158,11,0.2);background:rgba(245,158,11,0.06);display:flex;align-items:center;gap:16px;margin-bottom:24px;">
+      <svg width="20" height="20" fill="none" stroke="#f59e0b" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+      <div>
+        <p style="font-size:11px;color:#71717a;text-transform:uppercase;margin-bottom:4px;">Status</p>
+        <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+          <p style="font-size:20px;font-weight:700;color:white;">Partially Free</p>
+          <span class="badge ba">2026-11-01</span>
+        </div>
+        <p style="font-size:12px;color:#71717a;">Working hours: 08:00 – 18:00</p>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;">
+      <div class="card" style="border-color:rgba(239,68,68,0.15);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:14px;font-weight:600;color:white;">🔴 Busy Slots</span>
+          <span class="badge br">3</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:10px 12px;margin-bottom:8px;"><span style="font-size:12px;font-family:monospace;color:#d4d4d8;">09:00 – 09:15</span><span style="font-size:12px;color:#71717a;">Engineering Standup</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:10px 12px;margin-bottom:8px;"><span style="font-size:12px;font-family:monospace;color:#d4d4d8;">11:00 – 12:00</span><span style="font-size:12px;color:#71717a;">Product Review</span></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(239,68,68,0.05);border:1px solid rgba(239,68,68,0.15);border-radius:8px;padding:10px 12px;"><span style="font-size:12px;font-family:monospace;color:#d4d4d8;">14:30 – 15:30</span><span style="font-size:12px;color:#71717a;">Investor Call</span></div>
+      </div>
+      <div class="card" style="border-color:rgba(34,197,94,0.15);">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;">
+          <span style="font-size:14px;font-weight:600;color:white;">🟢 Free Windows</span>
+          <span class="badge bg">4</span>
+        </div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);border-radius:8px;padding:10px 12px;margin-bottom:8px;"><span style="font-size:12px;font-family:monospace;color:#d4d4d8;">08:00 – 09:00</span><button class="btn btn-o" style="font-size:10px;padding:3px 8px;height:auto;">📅 Book</button></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);border-radius:8px;padding:10px 12px;margin-bottom:8px;"><span style="font-size:12px;font-family:monospace;color:#d4d4d8;">09:15 – 11:00</span><button class="btn btn-o" style="font-size:10px;padding:3px 8px;height:auto;">📅 Book</button></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);border-radius:8px;padding:10px 12px;margin-bottom:8px;"><span style="font-size:12px;font-family:monospace;color:#d4d4d8;">12:00 – 14:30</span><button class="btn btn-o" style="font-size:10px;padding:3px 8px;height:auto;">📅 Book</button></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;background:rgba(34,197,94,0.05);border:1px solid rgba(34,197,94,0.15);border-radius:8px;padding:10px 12px;"><span style="font-size:12px;font-family:monospace;color:#d4d4d8;">15:30 – 18:00</span><button class="btn btn-o" style="font-size:10px;padding:3px 8px;height:auto;">📅 Book</button></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ INTEGRATIONS ═══ -->
+  <div class="page" id="page-integrations">
+    <div class="page-header"><h1>Integrations</h1><p>Connect your platforms. OAuth tokens stored securely in AWS Secrets Manager (KMS AES-256).</p></div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:24px;">
+      <div class="int-card card" style="border-color:rgba(239,68,68,0.2);background:rgba(239,68,68,0.06);">
+        <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">📧</div>
+            <div><p style="font-size:14px;font-weight:600;color:white;margin-bottom:2px;">Gmail</p><p style="font-size:11px;color:#71717a;">Connected Oct 25, 2026</p></div>
+          </div>
+          <span class="badge bg" style="font-size:10px;">✓ Active</span>
+        </div>
+        <p style="font-size:12px;color:#71717a;margin-bottom:16px;">Extract tasks and deadlines from Gmail messages via OAuth PKCE.</p>
+        <div style="display:flex;gap:8px;"><button class="btn btn-o" style="flex:1;font-size:12px;justify-content:center;">🔄 Re-sync</button><button class="btn btn-o" style="font-size:12px;color:#ef4444;">Disconnect</button></div>
+      </div>
+      <div class="int-card card" style="border-color:rgba(59,130,246,0.2);background:rgba(59,130,246,0.06);">
+        <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">📨</div>
+            <div><p style="font-size:14px;font-weight:600;color:white;margin-bottom:2px;">Microsoft Outlook</p><p style="font-size:11px;color:#71717a;">Connected Oct 29, 2026</p></div>
+          </div>
+          <span class="badge bg" style="font-size:10px;">✓ Active</span>
+        </div>
+        <p style="font-size:12px;color:#71717a;margin-bottom:16px;">Sync Outlook emails and calendar events automatically.</p>
+        <div style="display:flex;gap:8px;"><button class="btn btn-o" style="flex:1;font-size:12px;justify-content:center;">🔄 Re-sync</button><button class="btn btn-o" style="font-size:12px;color:#ef4444;">Disconnect</button></div>
+      </div>
+      <div class="int-card card" style="border-color:rgba(34,197,94,0.15);">
+        <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">💬</div>
+            <div><p style="font-size:14px;font-weight:600;color:white;margin-bottom:2px;">WhatsApp Business</p></div>
+          </div>
+          <span class="badge ba" style="font-size:10px;">Disconnected</span>
+        </div>
+        <p style="font-size:12px;color:#71717a;margin-bottom:16px;">Parse WhatsApp messages for tasks via Business Cloud API.</p>
+        <button class="btn btn-p" style="width:100%;justify-content:center;font-size:12px;">🔗 Connect via OAuth</button>
+      </div>
+      <div class="int-card card" style="border-color:rgba(14,165,233,0.15);">
+        <div style="display:flex;align-items:start;justify-content:space-between;margin-bottom:12px;">
+          <div style="display:flex;align-items:center;gap:12px;">
+            <div style="width:40px;height:40px;background:rgba(0,0,0,0.3);border:1px solid rgba(255,255,255,0.08);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:18px;">✈️</div>
+            <div><p style="font-size:14px;font-weight:600;color:white;margin-bottom:2px;">Telegram</p></div>
+          </div>
+          <span class="badge ba" style="font-size:10px;">Disconnected</span>
+        </div>
+        <p style="font-size:12px;color:#71717a;margin-bottom:16px;">Monitor Telegram chats and channels for actionable items.</p>
+        <button class="btn btn-p" style="width:100%;justify-content:center;font-size:12px;">🔗 Connect via OAuth</button>
+      </div>
+    </div>
+    <div style="background:rgba(139,92,246,0.06);border:1px solid rgba(139,92,246,0.15);border-radius:10px;padding:16px;">
+      <p style="font-size:12px;color:#a1a1aa;">🔒 <span style="color:#8b5cf6;font-weight:500;">Security:</span> OAuth tokens encrypted with AES-256 via AWS KMS · Stored at <code style="background:rgba(139,92,246,0.15);color:#c4b5fd;padding:1px 6px;border-radius:4px;">assistly/tokens/{user_id}/{provider}</code></p>
+    </div>
+  </div>
+
+  <!-- ═══ SETTINGS ═══ -->
+  <div class="page" id="page-settings">
+    <div class="page-header"><h1>Settings</h1><p>Manage your account preferences</p></div>
+    <div class="card" style="margin-bottom:16px;">
+      <h3 style="font-size:14px;font-weight:600;color:white;margin-bottom:16px;">Account</h3>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;"><p style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Name</p><p style="font-size:13px;color:white;">Alex Johnson</p></div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;"><p style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Email</p><p style="font-size:13px;color:white;">demo@assistly.ai</p></div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;"><p style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Timezone</p><p style="font-size:13px;color:white;">America/New_York</p></div>
+        <div style="background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.08);border-radius:8px;padding:12px;"><p style="font-size:10px;color:#71717a;text-transform:uppercase;letter-spacing:1px;margin-bottom:4px;">Auth Provider</p><p style="font-size:13px;color:white;">Amazon Cognito</p></div>
+      </div>
+    </div>
+    <div class="card" style="margin-bottom:12px;">
+      <h3 style="font-size:14px;font-weight:600;color:white;margin-bottom:12px;">🔔 Notifications</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid rgba(255,255,255,0.05);margin-bottom:8px;">
+        <div><p style="font-size:13px;color:white;margin-bottom:2px;">AI task extraction alerts</p><p style="font-size:12px;color:#71717a;">Get notified when Bedrock extracts new tasks</p></div>
+        <div class="toggle" onclick="this.classList.toggle('off')" style="width:36px;height:20px;border-radius:10px;background:#7c3aed;cursor:pointer;position:relative;"><div style="position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:white;"></div></div>
+      </div>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+        <div><p style="font-size:13px;color:white;margin-bottom:2px;">Urgent task reminders</p><p style="font-size:12px;color:#71717a;">Reminders for high priority items</p></div>
+        <div class="toggle" onclick="this.classList.toggle('off')" style="width:36px;height:20px;border-radius:10px;background:#7c3aed;cursor:pointer;position:relative;"><div style="position:absolute;top:2px;right:2px;width:16px;height:16px;border-radius:50%;background:white;"></div></div>
+      </div>
+    </div>
+    <div class="card">
+      <h3 style="font-size:14px;font-weight:600;color:white;margin-bottom:12px;">🛡️ Security &amp; Privacy</h3>
+      <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 0;">
+        <div><p style="font-size:13px;color:white;margin-bottom:2px;">Two-factor authentication</p><p style="font-size:12px;color:#71717a;">Secured via Amazon Cognito MFA</p></div>
+        <span class="badge bg">Enabled</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ═══ PROFILE ═══ -->
+  <div class="page" id="page-profile">
+    <div class="page-header"><h1>Profile</h1></div>
+    <div class="card" style="margin-bottom:16px;">
+      <div style="display:flex;align-items:start;gap:16px;">
+        <div style="width:64px;height:64px;border-radius:50%;background:rgba(139,92,246,0.3);display:flex;align-items:center;justify-content:center;font-size:22px;font-weight:700;color:#c4b5fd;flex-shrink:0;">AJ</div>
+        <div style="flex:1;">
+          <h2 style="font-size:20px;font-weight:700;color:white;margin-bottom:4px;">Alex Johnson</h2>
+          <p style="font-size:13px;color:#71717a;margin-bottom:2px;">📧 demo@assistly.ai</p>
+          <p style="font-size:13px;color:#71717a;margin-bottom:8px;">🌐 America/New_York</p>
+          <div style="display:flex;gap:8px;">
+            <span class="badge bv">✓ Cognito Verified</span>
+            <span class="badge bg">Pro Plan</span>
+          </div>
+        </div>
+        <button class="btn btn-o" style="font-size:12px;">Edit Profile</button>
+      </div>
+    </div>
+    <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:12px;">
+      <div class="card" style="text-align:center;"><div style="font-size:24px;margin-bottom:8px;">⚡</div><p style="font-size:28px;font-weight:700;color:white;margin-bottom:4px;">6</p><p style="font-size:12px;color:#71717a;">Tasks Created</p></div>
+      <div class="card" style="text-align:center;"><div style="font-size:24px;margin-bottom:8px;">✅</div><p style="font-size:28px;font-weight:700;color:white;margin-bottom:4px;">1</p><p style="font-size:12px;color:#71717a;">Completed</p></div>
+      <div class="card" style="text-align:center;"><div style="font-size:24px;margin-bottom:8px;">🔗</div><p style="font-size:28px;font-weight:700;color:white;margin-bottom:4px;">2</p><p style="font-size:12px;color:#71717a;">Integrations</p></div>
+      <div class="card" style="text-align:center;"><div style="font-size:24px;margin-bottom:8px;">📝</div><p style="font-size:28px;font-weight:700;color:white;margin-bottom:4px;">2</p><p style="font-size:12px;color:#71717a;">Notes</p></div>
+    </div>
+  </div>
+
+</div><!-- end #main -->
+
+<script>
+  // ── Navigation ──────────────────────────────────────────────────
+  function showPage(name, el) {
+    // Hide all pages
+    document.querySelectorAll('.page').forEach(function(p) {
+      p.style.display = 'none';
+      p.classList.remove('active');
+    });
+    var notesPage = document.getElementById('page-notes');
+    notesPage.style.display = 'none';
+    notesPage.classList.remove('active');
+
+    // Remove active from all nav items
+    document.querySelectorAll('.nav-item').forEach(function(n) {
+      n.classList.remove('active');
+    });
+
+    // Show selected page
+    if (name === 'notes') {
+      notesPage.style.display = 'flex';
+      notesPage.classList.add('active');
+    } else {
+      var page = document.getElementById('page-' + name);
+      if (page) {
+        page.style.display = 'block';
+        page.classList.add('active');
+      }
+    }
+
+    // Set active nav
+    if (el) { el.classList.add('active'); }
+
+    if (name === 'calendar') { renderCalendar(); }
+    return false;
+  }
+
+  // ── Sidebar toggle ───────────────────────────────────────────────
+  function toggleSidebar() {
+    var sb = document.getElementById('sidebar');
+    var main = document.getElementById('main');
+    var btn = document.getElementById('sb-toggle');
+    sb.classList.toggle('collapsed');
+    if (sb.classList.contains('collapsed')) {
+      main.style.marginLeft = '64px';
+      btn.innerHTML = '&#8250;';
+    } else {
+      main.style.marginLeft = '240px';
+      btn.innerHTML = '&#8249;';
+    }
+  }
+
+  // ── AI Ticker ────────────────────────────────────────────────────
+  var tickerMsgs = [
+    "📩 Extracted task from Gmail: 'Submit Q4 report' — due today",
+    "🤖 Bedrock processed 3 new messages from Outlook",
+    "📅 Calendar sync: 2 new events detected",
+    "⚡ Urgent: AWS invoice due in 2 days",
+    "✅ Task 'Doctor appointment' marked complete via AI",
+    "📊 Confidence score 0.94 — task auto-created from Telegram",
+    "🔗 WhatsApp Business Cloud API ready to connect"
+  ];
+  var tickerIdx = 0;
+  setInterval(function() {
+    tickerIdx = (tickerIdx + 1) % tickerMsgs.length;
+    var el = document.getElementById('ticker-text');
+    if (el) {
+      el.style.opacity = '0';
+      setTimeout(function() {
+        el.textContent = tickerMsgs[tickerIdx];
+        el.style.opacity = '1';
+      }, 300);
+    }
+  }, 3500);
+
+  // ── Calendar ─────────────────────────────────────────────────────
+  var calYear = 2026, calMonth = 10; // November = month 10
+  var monthNames = ['January','February','March','April','May','June','July','August','September','October','November','December'];
+
+  var calEvents = {
+    '2026-11-1':  ['Standup','Review','Investor'],
+    '2026-11-2':  ['Design Review'],
+    '2026-11-8':  ['Team Sync'],
+    '2026-11-15': ['Sprint Planning'],
+    '2026-11-22': ['Retrospective']
+  };
+
+  function renderCalendar() {
+    document.getElementById('cal-month-label').textContent = monthNames[calMonth] + ' ' + calYear;
+    var grid = document.getElementById('cal-grid');
+    var firstDay = new Date(calYear, calMonth, 1).getDay();
+    var daysInMonth = new Date(calYear, calMonth + 1, 0).getDate();
+    var today = new Date();
+    var html = '';
+
+    for (var i = 0; i < firstDay; i++) {
+      html += '<div class="cal-cell" style="background:rgba(255,255,255,0.01);"></div>';
+    }
+
+    for (var d = 1; d <= daysInMonth; d++) {
+      var isToday = today.getFullYear() === calYear && today.getMonth() === calMonth && today.getDate() === d;
+      var key = calYear + '-' + (calMonth + 1) + '-' + d;
+      var evts = calEvents[key] || [];
+      var evtHtml = '';
+      for (var e = 0; e < Math.min(evts.length, 2); e++) {
+        evtHtml += '<div class="cal-event">' + evts[e] + '</div>';
+      }
+      if (evts.length > 2) { evtHtml += '<div style="font-size:9px;color:#71717a;padding-left:2px;">+' + (evts.length - 2) + ' more</div>'; }
+      html += '<div class="cal-cell' + (isToday ? ' today' : '') + '">' +
+        '<span class="cal-day-num' + (isToday ? ' today' : '') + '">' + d + '</span>' +
+        evtHtml + '</div>';
+    }
+    grid.innerHTML = html;
+  }
+
+  function changeMonth(dir) {
+    calMonth += dir;
+    if (calMonth > 11) { calMonth = 0; calYear++; }
+    if (calMonth < 0) { calMonth = 11; calYear--; }
+    renderCalendar();
+  }
+
+  function goToday() {
+    var t = new Date();
+    calYear = t.getFullYear();
+    calMonth = t.getMonth();
+    renderCalendar();
+  }
+
+  // ── Notes ─────────────────────────────────────────────────────────
+  var noteData = [
+    {
+      title: 'AWS Architecture Notes',
+      content: '## Aurora Serverless v2\n\nKey points:\n- Auto-scaling ACUs between 0.5 and 128\n- pgvector extension for semantic search\n- Row-level security per tenant\n\n## Bedrock Integration\n\n- Claude 3.5 Sonnet for task extraction\n- Titan Text Embeddings v2 for notes (1536-dim)\n- Confidence threshold: 0.70 for auto-insert'
+    },
+    {
+      title: 'Q4 Planning Ideas',
+      content: '## Revenue Targets\n\n- ARR goal: $2.4M\n- Focus on enterprise tier\n- Launch new integration marketplace\n\n## Key Initiatives\n\n- Bedrock AI pipeline upgrade\n- WhatsApp Business integration\n- Vector search performance tuning'
+    }
+  ];
+
+  function selectNote(idx) {
+    document.getElementById('note-title').textContent = noteData[idx].title;
+    document.getElementById('note-content').textContent = noteData[idx].content;
+    for (var i = 0; i < noteData.length; i++) {
+      var el = document.getElementById('note-' + i);
+      if (i === idx) {
+        el.style.border = '1px solid rgba(139,92,246,0.3)';
+        el.style.background = 'rgba(139,92,246,0.1)';
+      } else {
+        el.style.border = '1px solid transparent';
+        el.style.background = 'transparent';
+      }
+    }
+  }
+
+  // ── Search ────────────────────────────────────────────────────────
+  function doSearch() {
+    var q = document.getElementById('search-input').value.trim();
+    var results = document.getElementById('search-results');
+    if (!q) { results.innerHTML = '<p style="color:#71717a;font-size:13px;">Enter a search query above.</p>'; return; }
+    results.innerHTML = '<div style="display:flex;align-items:center;gap:12px;padding:24px;color:#71717a;font-size:13px;"><div class="ping-dot"></div>Generating embeddings and searching...</div>';
+    setTimeout(function() {
+      results.innerHTML =
+        '<p style="font-size:12px;color:#71717a;margin-bottom:12px;">2 results for "' + q + '"</p>' +
+        '<div class="search-result"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14px;font-weight:600;color:white;">📄 AWS Architecture Notes</span><div style="display:flex;align-items:center;gap:8px;"><span class="badge bv" style="font-size:10px;">Technical</span><span style="font-size:13px;font-weight:700;color:#8b5cf6;">94%</span></div></div><p style="font-size:13px;color:#a1a1aa;margin-bottom:10px;">Aurora Serverless v2, pgvector extension for semantic search, row-level security per tenant...</p><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;color:#71717a;">Similarity</span><div style="flex:1;height:4px;background:rgba(255,255,255,0.05);border-radius:2px;"><div style="height:100%;background:#7c3aed;border-radius:2px;width:94%;"></div></div><span style="font-size:11px;color:#71717a;font-family:monospace;">0.940</span></div></div>' +
+        '<div class="search-result"><div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;"><span style="font-size:14px;font-weight:600;color:white;">📄 Q4 Planning Ideas</span><div style="display:flex;align-items:center;gap:8px;"><span class="badge bv" style="font-size:10px;">Planning</span><span style="font-size:13px;font-weight:700;color:#8b5cf6;">78%</span></div></div><p style="font-size:13px;color:#a1a1aa;margin-bottom:10px;">ARR goal: $2.4M, focus on enterprise tier, launch new integration marketplace...</p><div style="display:flex;align-items:center;gap:8px;"><span style="font-size:11px;color:#71717a;">Similarity</span><div style="flex:1;height:4px;background:rgba(255,255,255,0.05);border-radius:2px;"><div style="height:100%;background:#7c3aed;border-radius:2px;width:78%;"></div></div><span style="font-size:11px;color:#71717a;font-family:monospace;">0.782</span></div></div>';
+    }, 800);
+  }
+
+  // ── Init ──────────────────────────────────────────────────────────
+  renderCalendar();
+</script>
+</body>
+</html>
